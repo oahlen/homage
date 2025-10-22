@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use clap::{Parser, ValueEnum};
 use core::str;
 use std::{env, fs, os::unix::fs as unix_fs, path::PathBuf, process::exit};
@@ -77,9 +78,24 @@ fn install_dotfile_entry(source: &PathBuf, dest: &PathBuf, context: &Context) {
     symlink(source, dest, context);
 }
 
+fn resolve_dest(dest: &str) -> PathBuf {
+    let expanded = if dest.starts_with('~') {
+        let home = home_dir();
+        home.join(dest.trim_start_matches('~').trim_start_matches('/'))
+    } else {
+        PathBuf::from(dest)
+    };
+
+    if expanded.is_absolute() {
+        expanded
+    } else {
+        home_dir().join(expanded)
+    }
+}
+
 fn install_dotfile(source_file: &str, dest_file: &str, context: &Context) {
     let source_path = context.dotfiles_dir.join(source_file);
-    let dest_path = home_dir().join(dest_file);
+    let dest_path = resolve_dest(dest_file);
 
     if !source_path.exists() {
         eprintln!(
@@ -126,7 +142,7 @@ fn uninstall_dotfile_entry(dest: &PathBuf, context: &Context) {
 }
 
 fn uninstall_dotfile(dest_file: &str, context: &Context) {
-    let dest_path = home_dir().join(dest_file);
+    let dest_path = resolve_dest(dest_file);
 
     if dest_path.is_dir() {
         for entry in walkdir::WalkDir::new(&dest_path)
@@ -147,16 +163,25 @@ fn uninstall_dotfile(dest_file: &str, context: &Context) {
     }
 }
 
-fn main() {
-    let cli = Cli::parse();
+fn resolve_dotfiles_dir(manifest: &str) -> Result<PathBuf, anyhow::Error> {
+    let manifest_file = PathBuf::from(manifest).to_path_buf();
 
-    let dotfiles_dir = PathBuf::from(&cli.manifest)
-        .parent()
-        .unwrap_or_else(|| {
-            eprintln!("Unable to resolve dotfiles dir");
-            exit(1);
-        })
-        .to_path_buf();
+    if manifest_file.is_relative() {
+        let canonical = fs::canonicalize(&manifest_file)?;
+        let parent = canonical
+            .parent()
+            .ok_or_else(|| anyhow!("Failed to get parent directory of manifest file"))?;
+        Ok(parent.to_path_buf())
+    } else {
+        Ok(manifest_file
+            .parent()
+            .ok_or_else(|| anyhow!("Failed to get parent directory of manifest file"))?
+            .to_path_buf())
+    }
+}
+
+fn main() -> Result<(), anyhow::Error> {
+    let cli = Cli::parse();
 
     let manifest_str = fs::read_to_string(&cli.manifest).unwrap_or_else(|_| {
         eprintln!("Manifest {} not found.", &cli.manifest);
@@ -171,7 +196,7 @@ fn main() {
     let files: Vec<(String, String)> = manifest.all.into_iter().collect();
 
     let context = Context {
-        dotfiles_dir,
+        dotfiles_dir: resolve_dotfiles_dir(&cli.manifest)?,
         dry_run: cli.dry_run,
         backup: cli.backup,
         verbose: cli.verbose,
@@ -188,14 +213,16 @@ fn main() {
 
     match cli.action {
         Action::Install => {
-            for (source, target) in &files {
-                install_dotfile(source, target, &context);
+            for (source, dest) in &files {
+                install_dotfile(source, dest, &context);
             }
         }
         Action::Uninstall => {
-            for (_, target) in &files {
-                uninstall_dotfile(target, &context);
+            for (_, dest) in &files {
+                uninstall_dotfile(dest, &context);
             }
         }
     }
+
+    Ok(())
 }
