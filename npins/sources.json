@@ -1,0 +1,11 @@
+{
+  "pins": {
+    "nixpkgs": {
+      "type": "Channel",
+      "name": "nixos-25.05",
+      "url": "https://releases.nixos.org/nixos/25.05/nixos-25.05.811497.33c6dca0c0cb/nixexprs.tar.xz",
+      "hash": "1iminicawm863aiba70kf3ahf56rq30ylaxy4zj97jlifcm1pfb7"
+    }
+  },
+  "version": 5
+}
