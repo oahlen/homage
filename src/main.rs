@@ -1,0 +1,201 @@
+use clap::{Parser, ValueEnum};
+use core::str;
+use std::{env, fs, os::unix::fs as unix_fs, path::PathBuf, process::exit};
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[arg(value_enum)]
+    action: Action,
+    manifest: String,
+    #[arg(long, value_name = "dry-run")]
+    dry_run: bool,
+    #[arg(long, value_name = "backup")]
+    backup: bool,
+    #[arg(short = 'v', long, value_name = "backup")]
+    verbose: bool,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum Action {
+    Install,
+    Uninstall,
+}
+
+#[derive(serde::Deserialize)]
+struct Manifest {
+    all: std::collections::HashMap<String, String>,
+}
+
+struct Context {
+    dotfiles_dir: PathBuf,
+    dry_run: bool,
+    backup: bool,
+    verbose: bool,
+}
+
+fn home_dir() -> PathBuf {
+    env::var("HOME").map(PathBuf::from).unwrap_or_else(|_| {
+        eprintln!("Could not determine $HOME");
+        exit(1);
+    })
+}
+
+fn backup(file: &PathBuf) {
+    if file.exists() && !file.is_symlink() {
+        println!(
+            "Backing up existing {} to {}.bak",
+            file.display(),
+            file.display()
+        );
+        fs::rename(file, file.with_extension("bak")).ok();
+    }
+}
+
+fn symlink(source: &PathBuf, dest: &PathBuf, context: &Context) {
+    unix_fs::symlink(source, dest).ok();
+    if context.verbose {
+        println!("Symlinked file {} -> {}", source.display(), &dest.display());
+    }
+}
+
+fn install_dotfile_entry(source: &PathBuf, dest: &PathBuf, context: &Context) {
+    println!("Installing {} to {}", source.display(), dest.display());
+
+    if context.dry_run {
+        return;
+    }
+
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent).ok();
+    }
+
+    if context.backup {
+        backup(dest);
+    }
+
+    symlink(source, dest, context);
+}
+
+fn install_dotfile(source_file: &str, dest_file: &str, context: &Context) {
+    let source_path = context.dotfiles_dir.join(source_file);
+    let dest_path = home_dir().join(dest_file);
+
+    if !source_path.exists() {
+        eprintln!(
+            "Error: Source file {} does not exist.",
+            source_path.display()
+        );
+        return;
+    }
+
+    if source_path.is_dir() {
+        for entry in walkdir::WalkDir::new(&source_path)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_type().is_file())
+        {
+            let rel_path = entry.path().strip_prefix(&source_path).unwrap();
+            let dest = dest_path.join(rel_path);
+            install_dotfile_entry(&entry.path().to_path_buf(), &dest, context);
+        }
+    } else {
+        install_dotfile_entry(&source_path, &dest_path, context);
+    }
+}
+
+fn uninstall_dotfile_entry(dest: &PathBuf, context: &Context) {
+    println!("Uninstalling {}", dest.display());
+
+    if context.dry_run {
+        return;
+    }
+
+    fs::remove_file(dest).ok();
+
+    if context.verbose {
+        println!("Removed symlink {}", dest.display());
+    }
+
+    let bak = dest.with_extension("bak");
+
+    if bak.exists() {
+        println!("Restoring backup {}", bak.display());
+        fs::rename(&bak, dest).ok();
+    }
+}
+
+fn uninstall_dotfile(dest_file: &str, context: &Context) {
+    let dest_path = home_dir().join(dest_file);
+
+    if dest_path.is_dir() {
+        for entry in walkdir::WalkDir::new(&dest_path)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.path().is_symlink())
+        {
+            let file = entry.path();
+            uninstall_dotfile_entry(&file.to_path_buf(), context);
+        }
+    } else if dest_path.is_symlink() {
+        uninstall_dotfile_entry(&dest_path, context);
+    } else {
+        println!(
+            "File {} is not a symlink, skipping ...",
+            dest_path.display()
+        );
+    }
+}
+
+fn main() {
+    let cli = Cli::parse();
+
+    let dotfiles_dir = PathBuf::from(&cli.manifest)
+        .parent()
+        .unwrap_or_else(|| {
+            eprintln!("Unable to resolve dotfiles dir");
+            exit(1);
+        })
+        .to_path_buf();
+
+    let manifest_str = fs::read_to_string(&cli.manifest).unwrap_or_else(|_| {
+        eprintln!("Manifest {} not found.", &cli.manifest);
+        exit(1);
+    });
+
+    let manifest: Manifest = toml::from_str(&manifest_str).unwrap_or_else(|e| {
+        eprintln!("Failed to parse manifest: {}", e);
+        exit(1);
+    });
+
+    let files: Vec<(String, String)> = manifest.all.into_iter().collect();
+
+    let context = Context {
+        dotfiles_dir,
+        dry_run: cli.dry_run,
+        backup: cli.backup,
+        verbose: cli.verbose,
+    };
+
+    println!(
+        "Installing dotfiles from {}",
+        context.dotfiles_dir.display()
+    );
+
+    if context.dry_run {
+        println!("Running in dry-run mode");
+    }
+
+    match cli.action {
+        Action::Install => {
+            for (source, target) in &files {
+                install_dotfile(source, target, &context);
+            }
+        }
+        Action::Uninstall => {
+            for (_, target) in &files {
+                uninstall_dotfile(target, &context);
+            }
+        }
+    }
+}
