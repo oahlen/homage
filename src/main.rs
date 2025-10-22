@@ -13,7 +13,7 @@ struct Cli {
     dry_run: bool,
     #[arg(long, value_name = "backup")]
     backup: bool,
-    #[arg(short = 'v', long, value_name = "backup")]
+    #[arg(short = 'v', long, value_name = "verbose")]
     verbose: bool,
 }
 
