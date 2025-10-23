@@ -49,6 +49,8 @@ impl Symlink {
             }
 
             fs::remove_file(&self.dest)?
+        } else if self.dest.exists() {
+            fs::remove_file(&self.dest)?
         }
 
         unix_fs::symlink(&self.source, &self.dest)?;
@@ -81,7 +83,9 @@ fn backup(file: &PathBuf) {
 }
 
 fn install_dotfile_entry(symlink: Symlink, context: &Context) {
-    println!("Installing {}", symlink);
+    if context.verbose {
+        println!("Installing {}", symlink);
+    }
 
     if context.dry_run {
         return;
