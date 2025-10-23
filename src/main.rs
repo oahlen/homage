@@ -54,9 +54,20 @@ fn backup(file: &PathBuf) {
 }
 
 fn symlink(source: &PathBuf, dest: &PathBuf, context: &Context) {
-    unix_fs::symlink(source, dest).ok();
-    if context.verbose {
-        println!("Symlinked file {} -> {}", source.display(), &dest.display());
+    match unix_fs::symlink(source, dest) {
+        Ok(_) => {
+            if context.verbose {
+                println!("Symlinked file {} -> {}", source.display(), dest.display());
+            }
+        }
+        Err(err) => {
+            eprintln!(
+                "Failed to create symlink {} -> {}: {}",
+                source.display(),
+                dest.display(),
+                err
+            );
+        }
     }
 }
 
@@ -73,6 +84,22 @@ fn install_dotfile_entry(source: &PathBuf, dest: &PathBuf, context: &Context) {
 
     if context.backup {
         backup(dest);
+    }
+
+    if dest.exists() && dest.is_symlink() {
+        match fs::remove_file(dest) {
+            Ok(_) => {
+                println!("Removed old symlink {}", dest.display());
+            }
+            Err(err) => {
+                eprintln!(
+                    "Failed to remove existing symlink '{}': {}",
+                    dest.display(),
+                    err
+                );
+            }
+        }
+        return;
     }
 
     symlink(source, dest, context);
