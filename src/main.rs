@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use clap::{Parser, ValueEnum};
 use core::str;
-use std::{env, fs, os::unix::fs as unix_fs, path::PathBuf, process::exit};
+use std::{env, fmt::Display, fs, os::unix::fs as unix_fs, path::PathBuf, process::exit};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -35,6 +35,33 @@ struct Context {
     verbose: bool,
 }
 
+struct Symlink {
+    source: PathBuf,
+    dest: PathBuf,
+}
+
+impl Symlink {
+    pub fn create(&self) -> Result<bool, anyhow::Error> {
+        if self.dest.is_symlink() {
+            let current_target = fs::read_link(&self.dest)?;
+            if current_target == *self.source {
+                return Ok(false);
+            }
+
+            fs::remove_file(&self.dest)?
+        }
+
+        unix_fs::symlink(&self.source, &self.dest)?;
+        Ok(true)
+    }
+}
+
+impl Display for Symlink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} -> {}", self.source.display(), self.dest.display())
+    }
+}
+
 fn home_dir() -> PathBuf {
     env::var("HOME").map(PathBuf::from).unwrap_or_else(|_| {
         eprintln!("Could not determine $HOME");
@@ -53,56 +80,33 @@ fn backup(file: &PathBuf) {
     }
 }
 
-fn symlink(source: &PathBuf, dest: &PathBuf, context: &Context) {
-    match unix_fs::symlink(source, dest) {
-        Ok(_) => {
-            if context.verbose {
-                println!("Symlinked file {} -> {}", source.display(), dest.display());
-            }
-        }
-        Err(err) => {
-            eprintln!(
-                "Failed to create symlink {} -> {}: {}",
-                source.display(),
-                dest.display(),
-                err
-            );
-        }
-    }
-}
-
-fn install_dotfile_entry(source: &PathBuf, dest: &PathBuf, context: &Context) {
-    println!("Installing {} to {}", source.display(), dest.display());
+fn install_dotfile_entry(symlink: Symlink, context: &Context) {
+    println!("Installing {}", symlink);
 
     if context.dry_run {
         return;
     }
 
-    if let Some(parent) = dest.parent() {
+    if let Some(parent) = symlink.dest.parent() {
         fs::create_dir_all(parent).ok();
     }
 
     if context.backup {
-        backup(dest);
+        backup(&symlink.dest);
     }
 
-    if dest.exists() && dest.is_symlink() {
-        match fs::remove_file(dest) {
-            Ok(_) => {
-                println!("Removed old symlink {}", dest.display());
-            }
-            Err(err) => {
-                eprintln!(
-                    "Failed to remove existing symlink '{}': {}",
-                    dest.display(),
-                    err
-                );
+    match &symlink.create() {
+        Ok(result) => {
+            if *result {
+                println!("Installed {}", symlink)
+            } else if context.verbose {
+                println!("Symlink {} already installed", symlink)
             }
         }
-        return;
-    }
-
-    symlink(source, dest, context);
+        Err(err) => {
+            eprintln!("Failed to create symlink {}: {}", symlink, err);
+        }
+    };
 }
 
 fn resolve_dest(dest: &str) -> PathBuf {
@@ -140,10 +144,22 @@ fn install_dotfile(source_file: &str, dest_file: &str, context: &Context) {
         {
             let rel_path = entry.path().strip_prefix(&source_path).unwrap();
             let dest = dest_path.join(rel_path);
-            install_dotfile_entry(&entry.path().to_path_buf(), &dest, context);
+            install_dotfile_entry(
+                Symlink {
+                    source: entry.path().to_path_buf(),
+                    dest,
+                },
+                context,
+            );
         }
     } else {
-        install_dotfile_entry(&source_path, &dest_path, context);
+        install_dotfile_entry(
+            Symlink {
+                source: source_path,
+                dest: dest_path,
+            },
+            context,
+        );
     }
 }
 
