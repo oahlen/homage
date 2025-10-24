@@ -1,5 +1,7 @@
 use std::{fmt::Display, fs, os::unix::fs as unix_fs, path::PathBuf};
 
+use log::info;
+
 pub struct Symlink {
     pub source: PathBuf,
     pub dest: PathBuf,
@@ -24,7 +26,7 @@ impl Symlink {
 
     pub fn backup(&self) -> Result<(), anyhow::Error> {
         if self.dest.exists() && !self.dest.is_symlink() {
-            println!(
+            info!(
                 "Backing up existing {} to {}.bak",
                 self.dest.display(),
                 self.dest.display()

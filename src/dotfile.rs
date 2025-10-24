@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use log::{debug, error, info};
 use std::{env, fs, path::PathBuf};
 
 use crate::{context::Context, symlink::Symlink};
@@ -46,7 +47,7 @@ impl Dotfile {
 
     pub fn install(&self, context: &Context) {
         if !self.source.exists() {
-            eprintln!(
+            error!(
                 "Error: Source file {} does not exist.",
                 self.source.display()
             );
@@ -93,7 +94,7 @@ impl Dotfile {
         } else if self.dest.is_symlink() {
             uninstall_dotfile_entry(&self.dest, context);
         } else {
-            println!(
+            info!(
                 "File {} is not a symlink, skipping ...",
                 self.dest.display()
             );
@@ -102,9 +103,7 @@ impl Dotfile {
 }
 
 fn install_dotfile_entry(symlink: Symlink, context: &Context) {
-    if context.verbose {
-        println!("Installing {}", symlink);
-    }
+    debug!("Installing {}", symlink);
 
     if context.dry_run {
         return;
@@ -118,7 +117,7 @@ fn install_dotfile_entry(symlink: Symlink, context: &Context) {
         match symlink.backup() {
             Ok(_) => (),
             Err(_) => {
-                eprintln!("Failed to backup file {}", symlink.dest.display());
+                error!("Failed to backup file {}", symlink.dest.display());
             }
         }
     }
@@ -126,19 +125,19 @@ fn install_dotfile_entry(symlink: Symlink, context: &Context) {
     match &symlink.create() {
         Ok(result) => {
             if *result {
-                println!("Installed {}", symlink)
-            } else if context.verbose {
-                println!("Symlink {} already installed", symlink)
+                info!("Installed {}", symlink)
+            } else {
+                info!("Symlink {} already installed", symlink)
             }
         }
         Err(err) => {
-            eprintln!("Failed to create symlink {}: {}", symlink, err);
+            error!("Failed to create symlink {}: {}", symlink, err);
         }
     };
 }
 
 fn uninstall_dotfile_entry(dest: &PathBuf, context: &Context) {
-    println!("Uninstalling {}", dest.display());
+    info!("Uninstalling {}", dest.display());
 
     if context.dry_run {
         return;
@@ -146,14 +145,12 @@ fn uninstall_dotfile_entry(dest: &PathBuf, context: &Context) {
 
     fs::remove_file(dest).ok();
 
-    if context.verbose {
-        println!("Removed symlink {}", dest.display());
-    }
+    info!("Removed symlink {}", dest.display());
 
     let bak = dest.with_extension("bak");
 
     if bak.exists() {
-        println!("Restoring backup {}", bak.display());
+        info!("Restoring backup {}", bak.display());
         fs::rename(&bak, dest).ok();
     }
 }

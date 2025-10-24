@@ -7,7 +7,6 @@ pub struct Context {
     pub dotfiles_dir: PathBuf,
     pub dry_run: bool,
     pub backup: bool,
-    pub verbose: bool,
 }
 
 impl Context {
@@ -16,7 +15,6 @@ impl Context {
             dotfiles_dir: resolve_dotfiles_dir(&cli.manifest)?,
             dry_run: cli.dry_run,
             backup: cli.backup,
-            verbose: cli.verbose,
         })
     }
 }
