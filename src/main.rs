@@ -1,8 +1,6 @@
 use clap::Parser;
-use core::str;
 use log::{error, info, warn};
-use std::io::Write;
-use std::{fs, process::exit};
+use std::{env, io::Write, path::PathBuf};
 
 use crate::{
     cli::{Action, Cli},
@@ -15,11 +13,6 @@ mod context;
 mod dotfile;
 mod symlink;
 
-#[derive(serde::Deserialize)]
-struct Manifest {
-    all: std::collections::HashMap<String, String>,
-}
-
 fn main() -> Result<(), anyhow::Error> {
     let cli = Cli::parse();
 
@@ -28,47 +21,30 @@ fn main() -> Result<(), anyhow::Error> {
         .format(|buf, record| writeln!(buf, "{}", record.args()))
         .init();
 
-    let manifest_str = fs::read_to_string(&cli.manifest).unwrap_or_else(|_| {
-        error!("Manifest {} not found.", &cli.manifest);
-        exit(1);
-    });
-
-    let manifest: Manifest = toml::from_str(&manifest_str).unwrap_or_else(|e| {
-        error!("Failed to parse manifest: {}", e);
-        exit(1);
-    });
-
-    let files: Vec<(String, String)> = manifest.all.into_iter().collect();
-
     let context = Context::new(&cli)?;
 
-    info!(
-        "Installing dotfiles from {}",
-        context.dotfiles_dir.display()
-    );
+    info!("Installing dotfiles from {}", context.directory.display());
 
     if context.dry_run {
         warn!("Running in dry-run mode");
     }
 
     match cli.action {
-        Action::Install => {
-            for (source, dest) in &files {
-                match Dotfile::new(source, dest, &context) {
-                    Ok(entry) => entry.install(&context),
-                    Err(err) => error!("{}", err),
-                }
-            }
-        }
-        Action::Uninstall => {
-            for (source, dest) in &files {
-                match Dotfile::new(source, dest, &context) {
-                    Ok(entry) => entry.uninstall(&context),
-                    Err(err) => error!("{}", err),
-                }
-            }
-        }
+        Action::Install => match Dotfile::new(&context.directory, home_dir()) {
+            Ok(entry) => entry.install(&context),
+            Err(err) => error!("{}", err),
+        },
+        Action::Uninstall => match Dotfile::new(&context.directory, home_dir()) {
+            Ok(entry) => entry.uninstall(&context),
+            Err(err) => error!("{}", err),
+        },
     }
 
     Ok(())
+}
+
+fn home_dir() -> PathBuf {
+    env::var("HOME").map(PathBuf::from).unwrap_or_else(|_| {
+        panic!("Could not determine $HOME");
+    })
 }

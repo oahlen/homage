@@ -1,6 +1,10 @@
+# let
+#   sources = import ./npins;
+#   pkgs = import sources.nixpkgs { };
+# in
 let
-  sources = import ./npins;
-  pkgs = import sources.nixpkgs { };
+  pkgs = import <nixpkgs> { };
+  # pkgs = import nixpkgs { };
 in
 pkgs.mkShell {
   NIX_SHELL = "Rust";

@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{Parser, ValueEnum};
 use log::LevelFilter;
 
@@ -6,7 +8,7 @@ use log::LevelFilter;
 pub struct Cli {
     #[arg(value_enum)]
     pub action: Action,
-    pub manifest: String,
+    pub directory: PathBuf,
     #[arg(long, value_name = "dry-run")]
     pub dry_run: bool,
     #[arg(long, value_name = "backup")]

@@ -4,7 +4,7 @@ use std::{fs, path::PathBuf};
 use crate::cli::Cli;
 
 pub struct Context {
-    pub dotfiles_dir: PathBuf,
+    pub directory: PathBuf,
     pub dry_run: bool,
     pub backup: bool,
 }
@@ -12,26 +12,30 @@ pub struct Context {
 impl Context {
     pub fn new(cli: &Cli) -> Result<Context, anyhow::Error> {
         Ok(Context {
-            dotfiles_dir: resolve_dotfiles_dir(&cli.manifest)?,
+            directory: resolve_directory(&cli.directory)?,
             dry_run: cli.dry_run,
             backup: cli.backup,
         })
     }
 }
 
-fn resolve_dotfiles_dir(manifest: &str) -> Result<PathBuf, anyhow::Error> {
-    let manifest_file = PathBuf::from(manifest).to_path_buf();
-
-    if manifest_file.is_relative() {
-        let canonical = fs::canonicalize(&manifest_file)?;
-        let parent = canonical
-            .parent()
-            .ok_or_else(|| anyhow!("Failed to get parent directory of manifest file"))?;
-        Ok(parent.to_path_buf())
-    } else {
-        Ok(manifest_file
-            .parent()
-            .ok_or_else(|| anyhow!("Failed to get parent directory of manifest file"))?
-            .to_path_buf())
+fn resolve_directory(path: &PathBuf) -> Result<PathBuf, anyhow::Error> {
+    if !path.exists() {
+        return Err(anyhow!("Directory {} does not exist", path.display()));
     }
+
+    let resovled = if path.is_relative() {
+        match fs::canonicalize(path) {
+            Ok(result) => Ok(result.to_path_buf()),
+            Err(_) => Err(anyhow!("Unable to resolve directory {}", path.display())),
+        }
+    } else {
+        Ok(path.to_path_buf())
+    }?;
+
+    if !resovled.is_dir() {
+        return Err(anyhow!("Input {} is not a directory", path.display()));
+    }
+
+    Ok(resovled)
 }
