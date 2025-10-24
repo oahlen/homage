@@ -56,6 +56,18 @@ impl Symlink {
         unix_fs::symlink(&self.source, &self.dest)?;
         Ok(true)
     }
+
+    pub fn backup(&self) -> Result<(), anyhow::Error> {
+        if self.dest.exists() && !self.dest.is_symlink() {
+            println!(
+                "Backing up existing {} to {}.bak",
+                self.dest.display(),
+                self.dest.display()
+            );
+            fs::rename(&self.dest, self.dest.with_extension("bak"))?;
+        }
+        Ok(())
+    }
 }
 
 impl Display for Symlink {
@@ -69,17 +81,6 @@ fn home_dir() -> PathBuf {
         eprintln!("Could not determine $HOME");
         exit(1);
     })
-}
-
-fn backup(file: &PathBuf) {
-    if file.exists() && !file.is_symlink() {
-        println!(
-            "Backing up existing {} to {}.bak",
-            file.display(),
-            file.display()
-        );
-        fs::rename(file, file.with_extension("bak")).ok();
-    }
 }
 
 fn install_dotfile_entry(symlink: Symlink, context: &Context) {
@@ -96,7 +97,12 @@ fn install_dotfile_entry(symlink: Symlink, context: &Context) {
     }
 
     if context.backup {
-        backup(&symlink.dest);
+        match symlink.backup() {
+            Ok(_) => (),
+            Err(_) => {
+                eprintln!("Failed to backup file {}", symlink.dest.display());
+            }
+        }
     }
 
     match &symlink.create() {
