@@ -1,11 +1,6 @@
-# let
-#   sources = import ./npins;
-#   pkgs = import sources.nixpkgs { };
-# in
-let
-  pkgs = import <nixpkgs> { };
-  # pkgs = import nixpkgs { };
-in
+{
+  pkgs ? import <nixpkgs> { },
+}:
 pkgs.mkShell {
   NIX_SHELL = "Rust";
 
@@ -14,7 +9,6 @@ pkgs.mkShell {
   packages = with pkgs; [
     cargo
     clippy
-    openssl
     pkg-config
     rust-analyzer
     rustc
