@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use std::{env, fs, path::PathBuf};
 
-use crate::{cli::Cli, symlink::Symlink};
+use crate::symlink::Symlink;
 
 pub struct Context {
     source: PathBuf,
@@ -12,13 +12,19 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(cli: &Cli) -> Result<Context, anyhow::Error> {
+    pub fn new(
+        source: PathBuf,
+        target: Option<PathBuf>,
+        dry_run: bool,
+        backup: bool,
+        verbose: bool,
+    ) -> Result<Context, anyhow::Error> {
         Ok(Context {
-            source: resolve_directory(&cli.source)?,
-            target: resolve_directory(&cli.target.clone().unwrap_or(home_dir()))?,
-            dry_run: cli.dry_run,
-            backup: cli.backup,
-            verbose: cli.verbose,
+            source: resolve_directory(&source)?,
+            target: resolve_directory(&target.clone().unwrap_or(home_dir()))?,
+            dry_run,
+            backup,
+            verbose,
         })
     }
 
