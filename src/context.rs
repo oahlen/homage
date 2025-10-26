@@ -115,7 +115,7 @@ fn resolve_directory(path: &PathBuf) -> Result<PathBuf, anyhow::Error> {
         return Err(anyhow!("Directory {} does not exist", path.display()));
     }
 
-    let resovled = if path.is_relative() {
+    let resolved = if path.is_relative() {
         match fs::canonicalize(path) {
             Ok(result) => Ok(result.to_path_buf()),
             Err(_) => Err(anyhow!("Unable to resolve directory {}", path.display())),
@@ -124,11 +124,11 @@ fn resolve_directory(path: &PathBuf) -> Result<PathBuf, anyhow::Error> {
         Ok(path.to_path_buf())
     }?;
 
-    if !resovled.is_dir() {
+    if !resolved.is_dir() {
         return Err(anyhow!("Input {} is not a directory", path.display()));
     }
 
-    Ok(resovled)
+    Ok(resolved)
 }
 
 fn home_dir() -> PathBuf {

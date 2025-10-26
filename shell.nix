@@ -2,7 +2,7 @@
   pkgs ? import <nixpkgs> { },
 }:
 pkgs.mkShell {
-  NIX_SHELL = "Rust";
+  NIX_SHELL = "Homage";
 
   RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
 
