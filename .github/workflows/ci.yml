@@ -1,0 +1,32 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  ci:
+    name: Build and Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        run: |
+          rustup update
+          rustup component add rustfmt
+          rustup component add clippy
+
+      - name: Run build
+        run: cargo build
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Run formatting and linting
+        run: |
+          cargo fmt --check
+          cargo clippy -- -D warnings
