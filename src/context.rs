@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use log::{debug, error, info};
 use std::{env, fs, path::PathBuf};
 
 use crate::symlink::Symlink;
@@ -8,7 +9,6 @@ pub struct Context {
     target: PathBuf,
     dry_run: bool,
     backup: bool,
-    verbose: bool,
 }
 
 impl Context {
@@ -17,22 +17,19 @@ impl Context {
         target: Option<PathBuf>,
         dry_run: bool,
         backup: bool,
-        verbose: bool,
     ) -> Result<Context, anyhow::Error> {
         Ok(Context {
             source: resolve_directory(&source)?,
-            target: resolve_directory(&target.clone().unwrap_or(home_dir()))?,
-            dry_run,
-            backup,
-            verbose,
+            target: resolve_directory(&target.clone().unwrap_or(home_dir()?))?,
+            dry_run, backup,
         })
     }
 
     pub fn install(&self) {
-        println!("Installing dotfiles from {}", self.source.display());
+        info!("Installing dotfiles from {}", self.source.display());
 
         if self.dry_run {
-            println!("Running in dry-run mode");
+            debug!("Running in dry-run mode");
         }
 
         for entry in walkdir::WalkDir::new(&self.source)
@@ -65,7 +62,7 @@ impl Context {
     }
 
     fn install_dotfile_entry(&self, symlink: Symlink) {
-        println!("Installing {}", symlink);
+        info!("Installing {}", symlink);
 
         if self.dry_run {
             return;
@@ -76,10 +73,10 @@ impl Context {
         }
 
         if self.backup {
-            match symlink.backup(self.verbose) {
+            match symlink.backup() {
                 Ok(_) => (),
                 Err(_) => {
-                    eprintln!("Failed to backup file {}", symlink.dest.display());
+                    error!("Failed to backup file {}", symlink.dest.display());
                 }
             }
         }
@@ -87,17 +84,17 @@ impl Context {
         match &symlink.create() {
             Ok(result) => {
                 if !*result {
-                    println!("Symlink {} already installed", symlink)
+                    debug!("Symlink {} already installed", symlink)
                 }
             }
             Err(err) => {
-                eprintln!("Failed to create symlink {}: {}", symlink, err);
+                error!("Failed to create symlink {}: {}", symlink, err);
             }
         };
     }
 
     fn uninstall_dotfile_entry(&self, dest: &PathBuf) {
-        println!("Uninstalling {}", dest.display());
+        info!("Uninstalling {}", dest.display());
 
         if self.dry_run {
             return;
@@ -108,9 +105,7 @@ impl Context {
         let bak = dest.with_extension("bak");
 
         if bak.exists() {
-            if self.verbose {
-                println!("Restoring backup {}", bak.display());
-            }
+            debug!("Restoring backup {}", bak.display());
             fs::rename(&bak, dest).ok();
         }
     }
@@ -137,8 +132,9 @@ fn resolve_directory(path: &PathBuf) -> Result<PathBuf, anyhow::Error> {
     Ok(resolved)
 }
 
-fn home_dir() -> PathBuf {
-    env::var("HOME").map(PathBuf::from).unwrap_or_else(|_| {
-        panic!("Could not determine $HOME");
-    })
+fn home_dir() -> Result<PathBuf, anyhow::Error> {
+    match env::var("HOME").map(PathBuf::from) {
+        Ok(result) => Ok(result),
+        Err(_) => Err(anyhow!("Could not determine $HOME")),
+    }
 }
