@@ -7,6 +7,7 @@ use crate::{
 
 mod action;
 mod args;
+mod format;
 mod symlink;
 
 fn main() -> Result<(), anyhow::Error> {
@@ -22,13 +23,9 @@ fn main() -> Result<(), anyhow::Error> {
             source,
             target,
             backup,
-        } => {
-            let context = Action::new(source, target, args.dry_run, backup)?;
-            context.install();
-        }
+        } => Action::new(source, target, args.dry_run, backup)?.install(),
         ActionType::Uninstall { source, target } => {
-            let context = Action::new(source, target, args.dry_run, true)?;
-            context.uninstall();
+            Action::new(source, target, args.dry_run, true)?.uninstall()
         }
     }
 

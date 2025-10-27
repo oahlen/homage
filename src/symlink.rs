@@ -1,6 +1,6 @@
 use std::{fmt::Display, fs, os::unix::fs as unix_fs, path::PathBuf};
 
-use colored::Colorize;
+use crate::format::{format_file, format_link};
 
 pub struct Symlink {
     pub source: PathBuf,
@@ -37,8 +37,8 @@ impl Display for Symlink {
         write!(
             f,
             "{} -> {}",
-            self.source.display().to_string().blue(),
-            self.dest.display().to_string().cyan()
+            format_file(&self.source),
+            format_link(&self.dest)
         )
     }
 }

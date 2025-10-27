@@ -1,9 +1,8 @@
 use anyhow::anyhow;
-use colored::Colorize;
 use log::{debug, error, info, trace, warn};
 use std::{env, fs, path::PathBuf};
 
-use crate::symlink::Symlink;
+use crate::{format::format_dir, symlink::Symlink};
 
 pub struct Action {
     source: PathBuf,
@@ -28,10 +27,7 @@ impl Action {
     }
 
     pub fn install(&self) {
-        info!(
-            "Installing dotfiles from {}",
-            self.source.display().to_string().blue()
-        );
+        info!("Installing dotfiles from {}", format_dir(&self.source));
 
         for entry in walkdir::WalkDir::new(&self.source)
             .into_iter()
@@ -103,10 +99,7 @@ impl Action {
     }
 
     fn uninstall_symlink(&self, dest: &PathBuf) {
-        info!(
-            "Uninstalling dotfiles from {}",
-            dest.display().to_string().blue()
-        );
+        info!("Uninstalling dotfiles from {}", format_dir(dest));
 
         if self.dry_run {
             return;
