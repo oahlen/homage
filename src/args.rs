@@ -5,7 +5,7 @@ use log::LevelFilter;
 
 #[derive(Debug, Parser, Clone)]
 #[command(author, version, about, long_about)]
-pub struct Cli {
+pub struct Args {
     #[clap(subcommand)]
     pub action: Action,
 
@@ -50,9 +50,9 @@ pub enum Action {
     },
 }
 
-impl Cli {
-    pub fn parse_args() -> Cli {
-        let mut cli = Cli::parse();
+impl Args {
+    pub fn parse_args() -> Args {
+        let mut cli = Args::parse();
         cli.verbosity = std::cmp::min(3, cli.verbosity);
         cli
     }

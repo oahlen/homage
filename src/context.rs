@@ -21,7 +21,8 @@ impl Context {
         Ok(Context {
             source: resolve_directory(&source)?,
             target: resolve_directory(&target.clone().unwrap_or(home_dir()?))?,
-            dry_run, backup,
+            dry_run,
+            backup,
         })
     }
 
