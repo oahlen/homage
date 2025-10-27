@@ -1,12 +1,12 @@
 use std::io::Write;
 
 use crate::{
-    args::{Action, Args},
-    context::Context,
+    action::Action,
+    args::{ActionType, Args},
 };
 
+mod action;
 mod args;
-mod context;
 mod symlink;
 
 fn main() -> Result<(), anyhow::Error> {
@@ -18,16 +18,16 @@ fn main() -> Result<(), anyhow::Error> {
         .init();
 
     match args.action {
-        Action::Install {
+        ActionType::Install {
             source,
             target,
             backup,
         } => {
-            let context = Context::new(source, target, args.dry_run, backup)?;
+            let context = Action::new(source, target, args.dry_run, backup)?;
             context.install();
         }
-        Action::Uninstall { source, target } => {
-            let context = Context::new(source, target, args.dry_run, true)?;
+        ActionType::Uninstall { source, target } => {
+            let context = Action::new(source, target, args.dry_run, true)?;
             context.uninstall();
         }
     }

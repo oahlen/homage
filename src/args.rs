@@ -7,7 +7,7 @@ use log::LevelFilter;
 #[command(author, version, about, long_about)]
 pub struct Args {
     #[clap(subcommand)]
-    pub action: Action,
+    pub action: ActionType,
 
     /// Whether to perform a dry run of the specified operation. Does not perform any file system
     /// operations.
@@ -20,7 +20,7 @@ pub struct Args {
 }
 
 #[derive(Debug, Clone, Subcommand)]
-pub enum Action {
+pub enum ActionType {
     /// Installs the specified dotifles directory by symlinking all the files into the target
     /// directory. Only files are symlinked while subdirectories are created as needed in the
     /// target directory.

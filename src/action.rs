@@ -4,21 +4,21 @@ use std::{env, fs, path::PathBuf};
 
 use crate::symlink::Symlink;
 
-pub struct Context {
+pub struct Action {
     source: PathBuf,
     target: PathBuf,
     dry_run: bool,
     backup: bool,
 }
 
-impl Context {
+impl Action {
     pub fn new(
         source: PathBuf,
         target: Option<PathBuf>,
         dry_run: bool,
         backup: bool,
-    ) -> Result<Context, anyhow::Error> {
-        Ok(Context {
+    ) -> Result<Action, anyhow::Error> {
+        Ok(Action {
             source: resolve_directory(&source)?,
             target: resolve_directory(&target.clone().unwrap_or(home_dir()?))?,
             dry_run,
@@ -40,7 +40,7 @@ impl Context {
         {
             let rel_path = entry.path().strip_prefix(&self.source).unwrap();
             let dest = self.target.join(rel_path);
-            self.install_dotfile_entry(Symlink {
+            self.install_symlink(Symlink {
                 source: entry.path().to_path_buf(),
                 dest,
             });
@@ -57,12 +57,12 @@ impl Context {
             let file = self.target.join(rel);
 
             if file.is_symlink() {
-                self.uninstall_dotfile_entry(&file.to_path_buf());
+                self.uninstall_symlink(&file.to_path_buf());
             }
         }
     }
 
-    fn install_dotfile_entry(&self, symlink: Symlink) {
+    fn install_symlink(&self, symlink: Symlink) {
         info!("Installing {}", symlink);
 
         if self.dry_run {
@@ -94,7 +94,7 @@ impl Context {
         };
     }
 
-    fn uninstall_dotfile_entry(&self, dest: &PathBuf) {
+    fn uninstall_symlink(&self, dest: &PathBuf) {
         info!("Uninstalling {}", dest.display());
 
         if self.dry_run {
