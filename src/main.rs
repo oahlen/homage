@@ -1,4 +1,4 @@
-use std::io::Write;
+use log::warn;
 
 use crate::{
     action::Action,
@@ -11,11 +11,11 @@ mod symlink;
 
 fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse_args();
+    args.init_logger();
 
-    env_logger::builder()
-        .filter_level(args.log_level())
-        .format(|buf, record| writeln!(buf, "{}", record.args()))
-        .init();
+    if args.dry_run {
+        warn!("Running in dry-run mode");
+    }
 
     match args.action {
         ActionType::Install {

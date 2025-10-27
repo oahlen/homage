@@ -1,6 +1,6 @@
 use std::{fmt::Display, fs, os::unix::fs as unix_fs, path::PathBuf};
 
-use log::info;
+use colored::Colorize;
 
 pub struct Symlink {
     pub source: PathBuf,
@@ -26,11 +26,6 @@ impl Symlink {
 
     pub fn backup(&self) -> Result<(), anyhow::Error> {
         if self.dest.exists() && !self.dest.is_symlink() {
-            info!(
-                "Backing up existing {} to {}.bak",
-                self.dest.display(),
-                self.dest.display()
-            );
             fs::rename(&self.dest, self.dest.with_extension("bak"))?;
         }
         Ok(())
@@ -39,6 +34,11 @@ impl Symlink {
 
 impl Display for Symlink {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} -> {}", self.source.display(), self.dest.display())
+        write!(
+            f,
+            "{} -> {}",
+            self.source.display().to_string().blue(),
+            self.dest.display().to_string().cyan()
+        )
     }
 }

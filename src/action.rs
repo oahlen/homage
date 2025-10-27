@@ -1,5 +1,6 @@
 use anyhow::anyhow;
-use log::{debug, error, info};
+use colored::Colorize;
+use log::{debug, error, info, trace, warn};
 use std::{env, fs, path::PathBuf};
 
 use crate::symlink::Symlink;
@@ -27,11 +28,10 @@ impl Action {
     }
 
     pub fn install(&self) {
-        info!("Installing dotfiles from {}", self.source.display());
-
-        if self.dry_run {
-            debug!("Running in dry-run mode");
-        }
+        info!(
+            "Installing dotfiles from {}",
+            self.source.display().to_string().blue()
+        );
 
         for entry in walkdir::WalkDir::new(&self.source)
             .into_iter()
@@ -75,7 +75,13 @@ impl Action {
 
         if self.backup {
             match symlink.backup() {
-                Ok(_) => (),
+                Ok(_) => {
+                    warn!(
+                        "Backing up existing {} to {}.bak",
+                        symlink.dest.display(),
+                        symlink.dest.display()
+                    );
+                }
                 Err(_) => {
                     error!("Failed to backup file {}", symlink.dest.display());
                 }
@@ -84,7 +90,9 @@ impl Action {
 
         match &symlink.create() {
             Ok(result) => {
-                if !*result {
+                if *result {
+                    trace!("Created symlink {}", symlink);
+                } else {
                     debug!("Symlink {} already installed", symlink)
                 }
             }
@@ -95,7 +103,10 @@ impl Action {
     }
 
     fn uninstall_symlink(&self, dest: &PathBuf) {
-        info!("Uninstalling {}", dest.display());
+        info!(
+            "Uninstalling dotfiles from {}",
+            dest.display().to_string().blue()
+        );
 
         if self.dry_run {
             return;

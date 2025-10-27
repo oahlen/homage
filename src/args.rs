@@ -1,7 +1,10 @@
+use std::io::Write;
+
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use log::LevelFilter;
+use colored::Colorize;
+use log::{Level, LevelFilter};
 
 #[derive(Debug, Parser, Clone)]
 #[command(author, version, about, long_about)]
@@ -57,7 +60,22 @@ impl Args {
         cli
     }
 
-    pub fn log_level(&self) -> LevelFilter {
+    pub fn init_logger(&self) {
+        env_logger::builder()
+            .filter_level(self.log_level())
+            .format(|buf, record| {
+                let message = format!("{}", record.args());
+                match record.level() {
+                    Level::Error => writeln!(buf, "{}", message.red()),
+                    Level::Warn => writeln!(buf, "{}", message.yellow()),
+                    Level::Info => writeln!(buf, "{}", record.args()),
+                    _ => writeln!(buf, "{}", message.bright_black()),
+                }
+            })
+            .init();
+    }
+
+    fn log_level(&self) -> LevelFilter {
         if self.dry_run {
             return match self.verbosity {
                 3 => LevelFilter::Trace,
