@@ -36,6 +36,8 @@ jobs:
   publish:
     name: Publish
     if: ${{ github.ref_type == 'tag' }}
+    needs:
+      - build
     runs-on: ubuntu-latest
 
     steps:
