@@ -18,14 +18,16 @@ fn main() -> Result<(), anyhow::Error> {
         warn!("Running in dry-run mode");
     }
 
+    let skip_confirmation = args.dry_run || args.no_confirm;
+
     match args.action {
         ActionType::Install {
             source,
             target,
             backup,
-        } => Action::new(source, target, args.dry_run, backup)?.install(),
+        } => Action::new(source, target, args.dry_run, backup, skip_confirmation)?.install(),
         ActionType::Uninstall { source, target } => {
-            Action::new(source, target, args.dry_run, true)?.uninstall()
+            Action::new(source, target, args.dry_run, true, skip_confirmation)?.uninstall()
         }
     }
 

@@ -12,14 +12,22 @@ pub struct Args {
     #[clap(subcommand)]
     pub action: ActionType,
 
-    /// Whether to perform a dry run of the specified operation. Does not perform any file system
+    /// Whether to perform a dry run of the specified action. Does not perform any file system
     /// operations.
     #[arg(long, value_name = "dry-run", global = true)]
     pub dry_run: bool,
 
+    /// Whether to skip user confirmation of the action to perform.
+    #[arg(long, value_name = "no-confirm", global = true)]
+    pub no_confirm: bool,
+
     /// Prints more detailed information of the performed actions.
     #[clap(short = 'v', long = "verbosity", action = clap::ArgAction::Count, global = true)]
     verbosity: u8,
+
+    /// Whether to only print error messages, disbables the 'verbosity' arg.
+    #[arg(long, value_name = "no-confirm", global = true)]
+    pub quiet: bool,
 }
 
 #[derive(Debug, Clone, Subcommand)]
@@ -35,7 +43,7 @@ pub enum ActionType {
         /// specified.
         target: Option<PathBuf>,
 
-        /// Whether to backup files that would otherwise be overridden by the specified operation.
+        /// Whether to backup files that would otherwise be overridden by the specified action.
         /// Backed up files will be the original file with '.bak' appended to the end.
         #[arg(long, value_name = "backup")]
         backup: bool,
@@ -68,14 +76,17 @@ impl Args {
                 match record.level() {
                     Level::Error => writeln!(buf, "{}", message.red()),
                     Level::Warn => writeln!(buf, "{}", message.yellow()),
-                    Level::Info => writeln!(buf, "{}", record.args()),
-                    _ => writeln!(buf, "{}", message.bright_black()),
+                    _ => writeln!(buf, "{}", record.args()),
                 }
             })
             .init();
     }
 
     fn log_level(&self) -> LevelFilter {
+        if self.quiet {
+            return LevelFilter::Error;
+        }
+
         if self.dry_run {
             return match self.verbosity {
                 3 => LevelFilter::Trace,
