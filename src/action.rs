@@ -70,6 +70,42 @@ impl Action {
         }
     }
 
+    pub fn clean(&self) {
+        info!("Cleaning dotfiles from {}", fmt_dir(&self.source));
+
+        let entries: Vec<DirEntry> = walkdir::WalkDir::new(&self.target)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.path_is_symlink())
+            .filter_map(|e| match fs::read_link(e.path()) {
+                Ok(res) => Some((e, res)),
+                Err(_) => None,
+            })
+            .filter(|(_, res)| res.starts_with(&self.source))
+            .filter_map(|(e, res)| match res.canonicalize() {
+                Ok(_) => None,
+                Err(_) => Some(e),
+            })
+            .collect();
+
+        println!(
+            "{} dotfiles to process, do you want to proceed? (y/n)",
+            fmt_number(entries.len()),
+        );
+
+        if !self.skip_confirmation && !confirm() {
+            return;
+        }
+
+        for entry in entries {
+            debug!("Removing {}", entry.path().display());
+
+            if !self.dry_run {
+                fs::remove_file(entry.path()).ok();
+            }
+        }
+    }
+
     fn install_symlink(&self, symlink: Symlink) {
         debug!("Installing {}", symlink);
 
@@ -112,7 +148,7 @@ impl Action {
     }
 
     fn uninstall_symlink(&self, target: &PathBuf) {
-        debug!("Uninstalling dotfiles from {}", fmt_dir(target));
+        debug!("Uninstalling {}", fmt_file(target));
 
         if self.dry_run {
             return;

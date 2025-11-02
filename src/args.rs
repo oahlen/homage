@@ -59,6 +59,16 @@ pub enum ActionType {
         /// specified.
         target: Option<PathBuf>,
     },
+    /// Performs cleanup of broken symlinks in the target directory that points back into the
+    /// specified dotfiles directory.
+    Clean {
+        /// The dotfiles directory to clean up broken symlinks from.
+        source: PathBuf,
+
+        /// The root directory where to clean up symlinks, defaults to the home directory is not
+        /// specified.
+        target: Option<PathBuf>,
+    },
 }
 
 impl Args {

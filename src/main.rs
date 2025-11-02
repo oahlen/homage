@@ -29,6 +29,9 @@ fn main() -> Result<(), anyhow::Error> {
         ActionType::Uninstall { source, target } => {
             Action::new(source, target, args.dry_run, true, skip_confirmation)?.uninstall()
         }
+        ActionType::Clean { source, target } => {
+            Action::new(source, target, args.dry_run, true, skip_confirmation)?.clean()
+        }
     }
 
     Ok(())
