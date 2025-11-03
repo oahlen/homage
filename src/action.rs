@@ -73,6 +73,41 @@ impl Action {
     pub fn clean(&self) {
         info!("Cleaning dotfiles from {}", fmt_dir(&self.source));
 
+        if let Some(entries) = self.entries_to_clean() {
+            for entry in entries {
+                debug!("Cleaning {}", entry.path().display());
+
+                if !self.dry_run {
+                    fs::remove_file(entry.path()).ok();
+                }
+            }
+        }
+    }
+
+    fn entries_to_process(&self) -> Option<Vec<DirEntry>> {
+        let entries: Vec<DirEntry> = walkdir::WalkDir::new(&self.source)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_type().is_file())
+            .collect();
+
+        if self.skip_confirmation {
+            return Some(entries);
+        }
+
+        println!(
+            "{} dotfiles to process, do you want to proceed? (y/n)",
+            fmt_number(entries.len()),
+        );
+
+        if !confirm() {
+            return None;
+        }
+
+        Some(entries)
+    }
+
+    fn entries_to_clean(&self) -> Option<Vec<DirEntry>> {
         let entries: Vec<DirEntry> = walkdir::WalkDir::new(&self.target)
             .into_iter()
             .filter_map(Result::ok)
@@ -88,22 +123,20 @@ impl Action {
             })
             .collect();
 
+        if self.skip_confirmation {
+            return Some(entries);
+        }
+
         println!(
             "{} dotfiles to process, do you want to proceed? (y/n)",
             fmt_number(entries.len()),
         );
 
-        if !self.skip_confirmation && !confirm() {
-            return;
+        if !confirm() {
+            return None;
         }
 
-        for entry in entries {
-            debug!("Removing {}", entry.path().display());
-
-            if !self.dry_run {
-                fs::remove_file(entry.path()).ok();
-            }
-        }
+        Some(entries)
     }
 
     fn install_symlink(&self, symlink: Symlink) {
@@ -162,29 +195,6 @@ impl Action {
             debug!("Restoring backup {}", bak.display());
             fs::rename(&bak, target).ok();
         }
-    }
-
-    fn entries_to_process(&self) -> Option<Vec<DirEntry>> {
-        let entries: Vec<DirEntry> = walkdir::WalkDir::new(&self.source)
-            .into_iter()
-            .filter_map(Result::ok)
-            .filter(|e| e.file_type().is_file())
-            .collect();
-
-        if self.skip_confirmation {
-            return Some(entries);
-        }
-
-        println!(
-            "{} dotfiles to process, do you want to proceed? (y/n)",
-            fmt_number(entries.len()),
-        );
-
-        if !confirm() {
-            return None;
-        }
-
-        Some(entries)
     }
 }
 
