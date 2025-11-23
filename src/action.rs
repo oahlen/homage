@@ -42,31 +42,60 @@ impl Action {
     pub fn install(&self) {
         info!("Installing dotfiles from {}", fmt_dir(&self.source));
 
-        if let Some(entries) = self.entries_to_process() {
-            for entry in entries {
-                let rel_path = entry.path().strip_prefix(&self.source).unwrap();
-                let target = self.target.join(rel_path);
-                self.install_symlink(Symlink {
-                    source: entry.path().to_path_buf(),
-                    target,
-                });
+        let entries: Vec<_> = self
+            .entries_to_process()
+            .into_iter()
+            .filter(|e| !e.exists())
+            .collect();
+
+        if entries.is_empty() {
+            println!("No dotfiles to install");
+            return;
+        }
+
+        if !self.skip_confirmation {
+            println!(
+                "Found {} dotfile(s) to install, do you want to proceed? (y/n)",
+                fmt_number(entries.len()),
+            );
+
+            if !confirm() {
+                return;
             }
+        }
+
+        for entry in entries {
+            self.install_symlink(entry);
         }
     }
 
     pub fn uninstall(&self) {
         info!("Uninstalling dotfiles from {}", fmt_dir(&self.source));
 
-        if let Some(entries) = self.entries_to_process() {
-            for entry in entries {
-                let src = entry.path();
-                let rel = src.strip_prefix(&self.source).unwrap_or(src);
-                let file = self.target.join(rel);
+        let entries: Vec<_> = self
+            .entries_to_process()
+            .into_iter()
+            .filter(|e| e.exists())
+            .collect();
 
-                if file.is_symlink() {
-                    self.uninstall_symlink(&file.to_path_buf());
-                }
+        if entries.is_empty() {
+            println!("No dotfiles to uninstall");
+            return;
+        }
+
+        if !self.skip_confirmation {
+            println!(
+                "Found {} dotfile(s) to uninstall, do you want to proceed? (y/n)",
+                fmt_number(entries.len()),
+            );
+
+            if !confirm() {
+                return;
             }
+        }
+
+        for entry in entries {
+            self.uninstall_symlink(&entry);
         }
     }
 
@@ -84,27 +113,27 @@ impl Action {
         }
     }
 
-    fn entries_to_process(&self) -> Option<Vec<DirEntry>> {
+    fn entries_to_process(&self) -> Vec<Symlink> {
         let entries: Vec<DirEntry> = walkdir::WalkDir::new(&self.source)
             .into_iter()
             .filter_map(Result::ok)
             .filter(|e| e.file_type().is_file())
             .collect();
 
-        if self.skip_confirmation {
-            return Some(entries);
+        let mut links: Vec<Symlink> = Vec::new();
+
+        for entry in entries {
+            let src = entry.path();
+            let rel_path = src.strip_prefix(&self.source).unwrap_or(src);
+            let target = self.target.join(rel_path);
+
+            links.push(Symlink {
+                source: entry.path().to_path_buf(),
+                target,
+            });
         }
 
-        println!(
-            "{} dotfiles to process, do you want to proceed? (y/n)",
-            fmt_number(entries.len()),
-        );
-
-        if !confirm() {
-            return None;
-        }
-
-        Some(entries)
+        links
     }
 
     fn entries_to_clean(&self) -> Option<Vec<DirEntry>> {
@@ -128,7 +157,7 @@ impl Action {
         }
 
         println!(
-            "{} dotfiles to process, do you want to proceed? (y/n)",
+            "Found {} dotfile(s) to clean, do you want to proceed? (y/n)",
             fmt_number(entries.len()),
         );
 
@@ -180,20 +209,20 @@ impl Action {
         };
     }
 
-    fn uninstall_symlink(&self, target: &PathBuf) {
-        debug!("Uninstalling {}", fmt_file(target));
+    fn uninstall_symlink(&self, symlink: &Symlink) {
+        debug!("Uninstalling {}", fmt_file(&symlink.target));
 
         if self.dry_run {
             return;
         }
 
-        fs::remove_file(target).ok();
+        fs::remove_file(&symlink.target).ok();
 
-        let bak = target.with_extension("bak");
+        let bak = &symlink.target.with_extension("bak");
 
         if bak.exists() {
             debug!("Restoring backup {}", bak.display());
-            fs::rename(&bak, target).ok();
+            fs::rename(bak, &symlink.target).ok();
         }
     }
 }

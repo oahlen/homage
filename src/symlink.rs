@@ -9,19 +9,27 @@ pub struct Symlink {
 
 impl Symlink {
     pub fn create(&self) -> Result<bool, anyhow::Error> {
-        if self.target.is_symlink() {
-            let current_target = fs::read_link(&self.target)?;
-            if current_target == *self.source {
-                return Ok(false);
-            }
+        if self.exists() {
+            return Ok(false);
+        }
 
-            fs::remove_file(&self.target)?
-        } else if self.target.exists() {
-            fs::remove_file(&self.target)?
+        if self.target.exists() {
+            fs::remove_file(&self.target)?;
         }
 
         unix_fs::symlink(&self.source, &self.target)?;
         Ok(true)
+    }
+
+    pub fn exists(&self) -> bool {
+        if !self.target.is_symlink() {
+            return false;
+        }
+
+        match fs::read_link(&self.target) {
+            Ok(current) => current == self.source,
+            Err(_) => false,
+        }
     }
 
     pub fn backup(&self) -> Result<(), anyhow::Error> {
