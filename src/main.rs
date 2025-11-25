@@ -21,16 +21,14 @@ fn main() -> Result<(), anyhow::Error> {
     let skip_confirmation = args.dry_run || args.no_confirm;
 
     match args.action {
-        ActionType::Install {
-            source,
-            target,
-            backup,
-        } => Action::new(source, target, args.dry_run, backup, skip_confirmation)?.install(),
+        ActionType::Install { source, target } => {
+            Action::new(source, target, args.dry_run, skip_confirmation)?.install()
+        }
         ActionType::Uninstall { source, target } => {
-            Action::new(source, target, args.dry_run, true, skip_confirmation)?.uninstall()
+            Action::new(source, target, args.dry_run, skip_confirmation)?.uninstall()
         }
         ActionType::Clean { source, target } => {
-            Action::new(source, target, args.dry_run, true, skip_confirmation)?.clean()
+            Action::new(source, target, args.dry_run, skip_confirmation)?.clean()
         }
     }
 

@@ -14,19 +14,19 @@ pub struct Args {
 
     /// Whether to perform a dry run of the specified action. Does not perform any file system
     /// operations.
-    #[arg(long, value_name = "dry-run", global = true)]
+    #[arg(long, global = true)]
     pub dry_run: bool,
 
     /// Whether to skip user confirmation of the action to perform.
-    #[arg(long, value_name = "no-confirm", global = true)]
+    #[arg(long, global = true)]
     pub no_confirm: bool,
 
     /// Prints more detailed information of the performed actions.
     #[clap(short = 'v', long = "verbosity", action = clap::ArgAction::Count, global = true)]
     verbosity: u8,
 
-    /// Whether to only print error messages, disbables the 'verbosity' arg.
-    #[arg(long, value_name = "no-confirm", global = true)]
+    /// Whether to only print error messages, disables the 'verbosity' arg.
+    #[arg(long, global = true)]
     pub quiet: bool,
 }
 
@@ -39,18 +39,12 @@ pub enum ActionType {
         /// The dotfiles directory to install symlinks from.
         source: PathBuf,
 
-        /// The root directory where to create the symlinks, defaults to the home directory is not
+        /// The root directory where to create the symlinks, defaults to the home directory if not
         /// specified.
         target: Option<PathBuf>,
-
-        /// Whether to backup files that would otherwise be overridden by the specified action.
-        /// Backed up files will be the original file with '.bak' appended to the end.
-        #[arg(long, value_name = "backup")]
-        backup: bool,
     },
     /// Uninstall the specified dotfiles directory by removing the symlinks in the target directory
-    /// that points back to it. If the backup option is specified any existing backed up file is
-    /// restored.
+    /// that points back to it.
     Uninstall {
         /// The dotfiles directory to uninstall symlinks from.
         source: PathBuf,

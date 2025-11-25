@@ -1,6 +1,5 @@
 use anyhow::anyhow;
-use colored::Colorize;
-use log::{debug, error, info, trace};
+use log::{Level, debug, error, info, log_enabled};
 use std::{
     env,
     fs::{self},
@@ -18,7 +17,6 @@ pub struct Action {
     source: PathBuf,
     target: PathBuf,
     dry_run: bool,
-    backup: bool,
     skip_confirmation: bool,
 }
 
@@ -27,14 +25,12 @@ impl Action {
         source: PathBuf,
         target: Option<PathBuf>,
         dry_run: bool,
-        backup: bool,
         skip_confirmation: bool,
     ) -> Result<Action, anyhow::Error> {
         Ok(Action {
             source: resolve_directory(&source)?,
             target: resolve_directory(&target.clone().unwrap_or(home_dir()?))?,
             dry_run,
-            backup,
             skip_confirmation,
         })
     }
@@ -45,11 +41,26 @@ impl Action {
         let entries: Vec<_> = self
             .entries_to_process()
             .into_iter()
-            .filter(|e| !e.exists())
+            .filter(|e| !e.is_installed())
             .collect();
 
         if entries.is_empty() {
             println!("No dotfiles to install");
+            return;
+        }
+
+        let mut errors = 0;
+        for entry in &entries {
+            if entry.exists() {
+                error!(
+                    "Target file {} already exists, please remove it or back it up first",
+                    entry.target.display()
+                );
+                errors += 1;
+            }
+        }
+
+        if errors > 0 {
             return;
         }
 
@@ -65,7 +76,11 @@ impl Action {
         }
 
         for entry in entries {
-            self.install_symlink(entry);
+            debug!("Installing {}", entry);
+
+            if !self.dry_run {
+                entry.install();
+            }
         }
     }
 
@@ -75,7 +90,7 @@ impl Action {
         let entries: Vec<_> = self
             .entries_to_process()
             .into_iter()
-            .filter(|e| e.exists())
+            .filter(|e| e.is_installed())
             .collect();
 
         if entries.is_empty() {
@@ -95,19 +110,47 @@ impl Action {
         }
 
         for entry in entries {
-            self.uninstall_symlink(&entry);
+            if log_enabled!(Level::Debug) {
+                debug!("Uninstalling {}", fmt_file(&entry.target));
+            }
+
+            if !self.dry_run {
+                entry.uninstall();
+            }
         }
     }
 
     pub fn clean(&self) {
         info!("Cleaning dotfiles from {}", fmt_dir(&self.source));
 
-        if let Some(entries) = self.entries_to_clean() {
-            for entry in entries {
-                debug!("Cleaning {}", entry.path().display());
+        let entries = self.entries_to_clean();
 
-                if !self.dry_run {
-                    fs::remove_file(entry.path()).ok();
+        if !self.skip_confirmation {
+            println!(
+                "Found {} dotfile(s) to clean, do you want to proceed? (y/n)",
+                fmt_number(entries.len()),
+            );
+
+            if !confirm() {
+                return;
+            }
+        }
+
+        for entry in entries {
+            if log_enabled!(Level::Debug) {
+                debug!("Cleaning {}", entry.path().display());
+            }
+
+            if !self.dry_run {
+                match fs::remove_file(entry.path()) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!(
+                            "Failed to create parent directory {}: {}",
+                            entry.path().display(),
+                            err
+                        );
+                    }
                 }
             }
         }
@@ -127,16 +170,13 @@ impl Action {
             let rel_path = src.strip_prefix(&self.source).unwrap_or(src);
             let target = self.target.join(rel_path);
 
-            links.push(Symlink {
-                source: entry.path().to_path_buf(),
-                target,
-            });
+            links.push(Symlink::new(entry.path().to_path_buf(), target));
         }
 
         links
     }
 
-    fn entries_to_clean(&self) -> Option<Vec<DirEntry>> {
+    fn entries_to_clean(&self) -> Vec<DirEntry> {
         let entries: Vec<DirEntry> = walkdir::WalkDir::new(&self.target)
             .into_iter()
             .filter_map(Result::ok)
@@ -152,78 +192,7 @@ impl Action {
             })
             .collect();
 
-        if self.skip_confirmation {
-            return Some(entries);
-        }
-
-        println!(
-            "Found {} dotfile(s) to clean, do you want to proceed? (y/n)",
-            fmt_number(entries.len()),
-        );
-
-        if !confirm() {
-            return None;
-        }
-
-        Some(entries)
-    }
-
-    fn install_symlink(&self, symlink: Symlink) {
-        debug!("Installing {}", symlink);
-
-        if self.dry_run {
-            return;
-        }
-
-        if let Some(parent) = symlink.target.parent() {
-            fs::create_dir_all(parent).ok();
-        }
-
-        if self.backup {
-            match symlink.backup() {
-                Ok(_) => {
-                    info!(
-                        "Backing up existing {} to {}{}",
-                        fmt_file(&symlink.target),
-                        fmt_file(&symlink.target),
-                        ".bak".blue()
-                    );
-                }
-                Err(_) => {
-                    error!("Failed to backup file {}", symlink.target.display());
-                }
-            }
-        }
-
-        match &symlink.create() {
-            Ok(result) => {
-                if *result {
-                    trace!("Created symlink {}", symlink);
-                } else {
-                    debug!("Symlink {} already installed", symlink)
-                }
-            }
-            Err(err) => {
-                error!("Failed to create symlink {}: {}", symlink, err);
-            }
-        };
-    }
-
-    fn uninstall_symlink(&self, symlink: &Symlink) {
-        debug!("Uninstalling {}", fmt_file(&symlink.target));
-
-        if self.dry_run {
-            return;
-        }
-
-        fs::remove_file(&symlink.target).ok();
-
-        let bak = &symlink.target.with_extension("bak");
-
-        if bak.exists() {
-            debug!("Restoring backup {}", bak.display());
-            fs::rename(bak, &symlink.target).ok();
-        }
+        entries
     }
 }
 

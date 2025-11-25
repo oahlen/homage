@@ -1,5 +1,7 @@
 use std::{fmt::Display, fs, os::unix::fs as unix_fs, path::PathBuf};
 
+use log::error;
+
 use crate::format::{fmt_file, fmt_link};
 
 pub struct Symlink {
@@ -8,35 +10,60 @@ pub struct Symlink {
 }
 
 impl Symlink {
-    pub fn create(&self) -> Result<bool, anyhow::Error> {
-        if self.exists() {
-            return Ok(false);
-        }
-
-        if self.target.exists() {
-            fs::remove_file(&self.target)?;
-        }
-
-        unix_fs::symlink(&self.source, &self.target)?;
-        Ok(true)
+    pub fn new(source: PathBuf, target: PathBuf) -> Symlink {
+        Symlink { source, target }
     }
 
-    pub fn exists(&self) -> bool {
+    pub fn is_installed(&self) -> bool {
         if !self.target.is_symlink() {
             return false;
         }
 
         match fs::read_link(&self.target) {
-            Ok(current) => current == self.source,
+            Ok(current) => current == *self.source,
             Err(_) => false,
         }
     }
 
-    pub fn backup(&self) -> Result<(), anyhow::Error> {
-        if self.target.exists() && !self.target.is_symlink() {
-            fs::rename(&self.target, self.target.with_extension("bak"))?;
+    pub fn exists(&self) -> bool {
+        if let Ok(result) = self.target.try_exists()
+            && result
+        {
+            return true;
         }
-        Ok(())
+        false
+    }
+
+    pub fn install(&self) {
+        if let Some(parent) = self.target.parent() {
+            match fs::create_dir_all(parent) {
+                Ok(_) => {}
+                Err(err) => {
+                    error!(
+                        "Failed to create parent directory {}: {}",
+                        parent.display(),
+                        err
+                    );
+                    return;
+                }
+            }
+        }
+
+        match unix_fs::symlink(&self.source, &self.target) {
+            Ok(_) => {}
+            Err(err) => {
+                error!("Failed to create symlink {}: {}", self, err);
+            }
+        }
+    }
+
+    pub fn uninstall(&self) {
+        match fs::remove_file(&self.target) {
+            Ok(_) => {}
+            Err(err) => {
+                error!("Failed to remove symlink {}: {}", self, err);
+            }
+        }
     }
 }
 
