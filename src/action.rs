@@ -13,6 +13,7 @@ use crate::{
     symlink::Symlink,
 };
 
+#[derive(Debug)]
 pub struct Action {
     source: PathBuf,
     target: PathBuf,
@@ -234,5 +235,89 @@ fn confirm() -> bool {
             "yes" | "y"
         ),
         Err(_) => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{self, File};
+    use std::io::Write;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_dir(prefix: &str, create: bool) -> PathBuf {
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("homage_test_{}_{}", prefix, ts));
+
+        if create {
+            fs::create_dir_all(&dir).unwrap();
+        }
+
+        dir
+    }
+
+    fn create_file(path: &PathBuf, name: &str, content: &[u8]) -> PathBuf {
+        let source = path.join(name);
+        File::create(&source).unwrap().write_all(content).unwrap();
+        source
+    }
+
+    #[test]
+    fn action_new_missing_source_errors() {
+        let missing = unique_dir("missing", false);
+        assert!(!missing.exists());
+
+        let err = Action::new(missing.clone(), Some(missing.clone()), false, true).unwrap_err();
+        assert!(err.to_string().contains("does not exist"));
+    }
+
+    #[test]
+    fn entries_to_process_builds_relative_targets() {
+        let source = unique_dir("source", true);
+        let nested = source.join("nested");
+        fs::create_dir_all(&nested).unwrap();
+
+        let _ = create_file(&source, "a.txt", b"alpha");
+        let _ = create_file(&nested, "a.txt", b"alpha");
+        let target = unique_dir("target", true);
+
+        let action = Action::new(source.clone(), Some(target.clone()), false, true).unwrap();
+        let links = action.entries_to_process();
+        assert_eq!(links.len(), 2);
+
+        for link in links {
+            let rel = link.source.strip_prefix(&source).unwrap();
+            assert_eq!(link.target, target.join(rel));
+        }
+    }
+
+    #[test]
+    fn entries_to_clean_finds_broken_symlinks() {
+        let source = unique_dir("source_clean", true);
+        let nested = source.join("nested");
+        fs::create_dir_all(&nested).unwrap();
+
+        let _ = create_file(&nested, "ok.txt", b"ok");
+        let file_broken = create_file(&nested, "broken.txt", b"gone");
+
+        let target = unique_dir("target_clean", true);
+
+        let action = Action::new(source.clone(), Some(target.clone()), false, true).unwrap();
+        let links = action.entries_to_process();
+
+        for link in &links {
+            link.install();
+        }
+
+        fs::remove_file(&file_broken).unwrap();
+
+        let broken_entries = action.entries_to_clean();
+        assert_eq!(broken_entries.len(), 1);
+        let broken_path = broken_entries[0].path();
+        assert!(broken_path.ends_with("broken.txt"));
     }
 }
