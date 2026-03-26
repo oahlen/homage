@@ -2,44 +2,63 @@
 
 Simple and effective dotfiles manager for your home.
 
-Installs one or more dotfiles directories into the desired location.
-Files are installed as symlinks in the target directory and will follow the
-relative directory structure as in the source directory.
+Manages dotfiles through a simple manifest file format that declares which files should be symlinked and where.
+Homage tracks installed symlinks in a cache so it can automatically clean up stale entries when a manifest changes.
 
-An example dotfiles can look as follows:
+## Manifest format
 
-```sh
-dotfiles
-└── .config
-    └── application
-        └── config
+A manifest file specifies dotfiles to install and can include other manifests:
+
+```toml
+includes = [
+  "common.toml",
+  "../graphical-tools/manifest.toml",
+]
+
+[files]
+"niri/config.kdl" = "~/.config/niri/config.kdl"
+"waybar" = "~/.config/waybar"
 ```
 
-Running `homage install dotfiles` (or `homage install .` if it's your working directory)
-will install the file `config` in the `application` directory under
-`$HOME/.config`.
+- **Source paths** (left side) are resolved relative to the manifest file.
+- **Target paths** (right side) support `~` for the home directory.
+- **Individual files** are symlinked directly.
+- **Directories** are traversed recursively and all contained files are individually symlinked,
+  with intermediate directories created as needed.
+- **Includes** reference other manifest files (paths relative to the including manifest) and are resolved recursively.
+  Circular includes are detected and rejected.
 
-Since only files are symlinked it is possible to install multiple "profiles" by
-running the program several times on different directories mirroring the
-resulting structure you want.
+## Usage
 
-An example of this can look as follows:
+### Install
 
 ```sh
-dotfiles
-├── profile1
-│   └── .config
-│       └── application
-│           └── config
-└── profile2
-    └── .config
-        └── application
-            └── extra_config
+homage install manifest.toml
 ```
 
-To install profile 1 run `homage install profile1` and similarly
-`homage install profile2` for profile 2. As long as the files are different they
-will happily coexist in you home directory as separate symlinked files.
+Parses the manifest, compares against the cache, removes symlinks that are no longer referenced, and installs new ones.
+Running install again after modifying the manifest will automatically clean up entries that were removed.
 
-If the exact same file is specified in multiple profiles it will be the last
-profile installed that "wins", .i.e. existing symlinks will be removed.
+### Uninstall
+
+```sh
+homage uninstall manifest.toml
+```
+
+Removes all managed symlinks referenced by the manifest and any remaining entries in the cache,
+then deletes the cache file.
+
+### Options
+
+| Flag | Description |
+|---|---|
+| `--dry-run` | Preview changes without modifying the file system |
+| `--no-confirm` | Skip the confirmation prompt |
+| `-v` / `-vv` / `-vvv` | Increase output verbosity |
+| `--quiet` | Only print error messages |
+
+## Cache
+
+Homage stores its state at `$XDG_CACHE_HOME/homage/cache.toml` (falls back to `$HOME/.cache/homage/cache.toml`).
+The cache maps installed source files to their target locations so that stale entries can be detected and cleaned up on
+subsequent installs.

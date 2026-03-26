@@ -1,5 +1,4 @@
 use std::io::Write;
-
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
@@ -12,8 +11,8 @@ pub struct Args {
     #[clap(subcommand)]
     pub action: ActionType,
 
-    /// Whether to perform a dry run of the specified action. Does not perform any file system
-    /// operations.
+    /// Whether to perform a dry run of the specified action.
+    /// Does not perform any file system operations.
     #[arg(long, global = true)]
     pub dry_run: bool,
 
@@ -32,36 +31,16 @@ pub struct Args {
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum ActionType {
-    /// Installs the specified dotifles directory by symlinking all the files into the target
-    /// directory. Only files are symlinked while subdirectories are created as needed in the
-    /// target directory.
+    /// Installs dotfiles by symlinking files specified in the manifest.
+    /// Removes previously installed files that are no longer referenced by the manifest.
     Install {
-        /// The dotfiles directory to install symlinks from.
-        source: PathBuf,
-
-        /// The root directory where to create the symlinks, defaults to the home directory if not
-        /// specified.
-        target: Option<PathBuf>,
+        /// Path to the manifest TOML file.
+        manifest: PathBuf,
     },
-    /// Uninstall the specified dotfiles directory by removing the symlinks in the target directory
-    /// that points back to it.
+    /// Uninstalls all managed dotfiles referenced by the manifest and any remaining cached entries.
     Uninstall {
-        /// The dotfiles directory to uninstall symlinks from.
-        source: PathBuf,
-
-        /// The root directory where to remove the symlinks, defaults to the home directory is not
-        /// specified.
-        target: Option<PathBuf>,
-    },
-    /// Performs cleanup of broken symlinks in the target directory that points back into the
-    /// specified dotfiles directory.
-    Clean {
-        /// The dotfiles directory to clean up broken symlinks from.
-        source: PathBuf,
-
-        /// The root directory where to clean up symlinks, defaults to the home directory is not
-        /// specified.
-        target: Option<PathBuf>,
+        /// Path to the manifest TOML file.
+        manifest: PathBuf,
     },
 }
 

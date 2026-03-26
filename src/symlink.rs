@@ -106,7 +106,7 @@ mod tests {
         let base = unique_dir("regular");
 
         let source = create_file(&base, "source.txt", b"src");
-        let target = create_file(&base, "target.txt", b"tgt");
+        let target = create_file(&base, "target.txt", b"target");
 
         let link = Symlink::new(source, target);
 
@@ -139,7 +139,7 @@ mod tests {
         let base = unique_dir("exists");
 
         let source = create_file(&base, "source.txt", b"src");
-        let target = create_file(&base, "target.txt", b"tgt");
+        let target = create_file(&base, "target.txt", b"target");
 
         let link = Symlink::new(source, target.clone());
 
