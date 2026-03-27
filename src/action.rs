@@ -138,7 +138,7 @@ impl Action {
             new_cache
                 .save(&self.cache_path)
                 .context("Failed to save cache")?;
-            debug!("Cache updated at {}", fmt_file(&self.cache_path));
+            trace!("Cache updated at {}", fmt_file(&self.cache_path));
         }
 
         Ok(())

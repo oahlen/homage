@@ -1,5 +1,5 @@
 use anyhow::{Context, anyhow};
-use log::debug;
+use log::{debug, trace};
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -99,7 +99,7 @@ impl Manifest {
             {
                 let rel = entry.path().strip_prefix(&abs_source).unwrap();
                 let file_target = abs_target.join(rel);
-                debug!(
+                trace!(
                     "Resolved directory entry: {} -> {}",
                     fmt_file(entry.path()),
                     fmt_link(&file_target)
@@ -110,7 +110,7 @@ impl Manifest {
             // If the target is an existing directory, place the file inside it
             let final_target = Self::resolve_final_target(&abs_source, abs_target)?;
 
-            debug!(
+            trace!(
                 "Resolved file entry: {} -> {}",
                 fmt_file(&abs_source),
                 fmt_link(&final_target)
