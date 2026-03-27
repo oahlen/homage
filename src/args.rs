@@ -32,12 +32,11 @@ pub struct Args {
 #[derive(Debug, Clone, Subcommand)]
 pub enum ActionType {
     /// Installs dotfiles by symlinking files specified in the manifest.
-    /// Removes previously installed files that are no longer referenced by the manifest.
     Install {
         /// Path to the manifest TOML file.
         manifest: PathBuf,
     },
-    /// Uninstalls all managed dotfiles referenced by the manifest and any remaining cached entries.
+    /// Uninstalls all managed dotfiles referenced by the supplied manifest.
     Uninstall {
         /// Path to the manifest TOML file.
         manifest: PathBuf,

@@ -29,8 +29,10 @@ impl Manifest {
     pub fn load(path: &Path) -> anyhow::Result<Manifest> {
         let mut visited = HashSet::new();
         let mut entries = BTreeMap::new();
+
         Self::load_recursive(path, &mut visited, &mut entries)?;
         Self::validate_no_duplicate_targets(&entries)?;
+
         Ok(Manifest { entries })
     }
 
@@ -156,28 +158,10 @@ impl Manifest {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::tests::tests::{test_dir, write_file};
+
     use std::fs;
-    use std::io::Write;
-
-    fn test_dir(name: &str) -> PathBuf {
-        let ts = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let dir = std::env::temp_dir().join(format!("homage_manifest_{}_{}", name, ts));
-        fs::create_dir_all(&dir).unwrap();
-        dir
-    }
-
-    fn write_file(dir: &Path, name: &str, content: &str) -> PathBuf {
-        let path = dir.join(name);
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).unwrap();
-        }
-        let mut f = fs::File::create(&path).unwrap();
-        f.write_all(content.as_bytes()).unwrap();
-        path
-    }
 
     #[test]
     fn parse_basic_manifest() {

@@ -88,17 +88,8 @@ impl Cache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
 
-    fn test_dir(name: &str) -> PathBuf {
-        let ts = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let dir = std::env::temp_dir().join(format!("homage_cache_{}_{}", name, ts));
-        fs::create_dir_all(&dir).unwrap();
-        dir
-    }
+    use crate::tests::tests::test_dir;
 
     #[test]
     fn load_missing_cache_returns_default() {

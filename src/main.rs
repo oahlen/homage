@@ -12,6 +12,7 @@ mod cache;
 mod format;
 mod manifest;
 mod symlink;
+mod tests;
 mod utils;
 
 fn main() -> Result<(), anyhow::Error> {

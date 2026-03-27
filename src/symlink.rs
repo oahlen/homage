@@ -81,9 +81,11 @@ impl Display for Symlink {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::{self, File};
-    use std::io::Write;
+
+    use std::fs::{self};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    use crate::tests::tests::write_file;
 
     fn unique_dir(prefix: &str) -> PathBuf {
         let ts = SystemTime::now()
@@ -95,18 +97,12 @@ mod tests {
         dir
     }
 
-    fn create_file(path: &PathBuf, name: &str, content: &[u8]) -> PathBuf {
-        let source = path.join(name);
-        File::create(&source).unwrap().write_all(content).unwrap();
-        source
-    }
-
     #[test]
     fn is_installed_false_for_regular_file() {
         let base = unique_dir("regular");
 
-        let source = create_file(&base, "source.txt", b"src");
-        let target = create_file(&base, "target.txt", b"target");
+        let source = write_file(&base, "source.txt", "src");
+        let target = write_file(&base, "target.txt", "target");
 
         let link = Symlink::new(source, target);
 
@@ -116,7 +112,7 @@ mod tests {
     #[test]
     fn install_and_uninstall_symlink() {
         let base = unique_dir("install");
-        let source = create_file(&base, "source.txt", b"src");
+        let source = write_file(&base, "source.txt", "src");
 
         let target_dir = base.join("target");
         let target = target_dir.join("source.txt");
@@ -138,8 +134,8 @@ mod tests {
     fn exists_true_for_existing_file() {
         let base = unique_dir("exists");
 
-        let source = create_file(&base, "source.txt", b"src");
-        let target = create_file(&base, "target.txt", b"target");
+        let source = write_file(&base, "source.txt", "src");
+        let target = write_file(&base, "target.txt", "target");
 
         let link = Symlink::new(source, target.clone());
 
@@ -150,7 +146,7 @@ mod tests {
     fn is_installed_true_after_install() {
         let base = unique_dir("installed");
 
-        let source = create_file(&base, "source.txt", b"src");
+        let source = write_file(&base, "source.txt", "src");
         let target = base.join("link.txt");
 
         let link = Symlink::new(source.clone(), target.clone());

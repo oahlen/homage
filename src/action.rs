@@ -210,29 +210,10 @@ fn confirm() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use std::fs;
-    use std::io::Write;
-    use std::path::Path;
 
-    fn test_dir(name: &str) -> PathBuf {
-        let ts = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let dir = std::env::temp_dir().join(format!("homage_action_{}_{}", name, ts));
-        fs::create_dir_all(&dir).unwrap();
-        dir
-    }
-
-    fn write_file(dir: &Path, name: &str, content: &str) -> PathBuf {
-        let path = dir.join(name);
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).unwrap();
-        }
-        let mut f = fs::File::create(&path).unwrap();
-        f.write_all(content.as_bytes()).unwrap();
-        path
-    }
+    use crate::tests::tests::{test_dir, write_file};
 
     #[test]
     fn install_creates_symlinks_and_cache() {
