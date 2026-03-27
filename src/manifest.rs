@@ -71,53 +71,71 @@ impl Manifest {
 
         // Process file entries
         for (source, target) in &manifest.files {
-            let abs_source = manifest_dir.join(source);
-            let abs_source = abs_source.canonicalize().with_context(|| {
-                format!("Failed to resolve source path: {}", abs_source.display())
-            })?;
-
-            let abs_target = expand_tilde(target)?;
-
-            if abs_source.is_dir() {
-                for entry in WalkDir::new(&abs_source)
-                    .into_iter()
-                    .filter_map(Result::ok)
-                    .filter(|e| e.file_type().is_file())
-                {
-                    let rel = entry.path().strip_prefix(&abs_source).unwrap();
-                    let file_target = abs_target.join(rel);
-                    debug!(
-                        "Resolved directory entry: {} -> {}",
-                        entry.path().display(),
-                        file_target.display()
-                    );
-                    entries.insert(entry.path().to_path_buf(), file_target);
-                }
-            } else if abs_source.is_file() {
-                // If the target is an existing directory, place the file inside it
-                let final_target = if abs_target.is_dir() {
-                    let file_name = abs_source.file_name().ok_or_else(|| {
-                        anyhow!("Source has no file name: {}", abs_source.display())
-                    })?;
-                    abs_target.join(file_name)
-                } else {
-                    abs_target
-                };
-                debug!(
-                    "Resolved file entry: {} -> {}",
-                    abs_source.display(),
-                    final_target.display()
-                );
-                entries.insert(abs_source, final_target);
-            } else {
-                return Err(anyhow!(
-                    "Source path is neither a file nor directory: {}",
-                    abs_source.display()
-                ));
-            }
+            Self::resolve_entry(manifest_dir, source, target, entries)?;
         }
 
         Ok(())
+    }
+
+    fn resolve_entry(
+        manifest_dir: &Path,
+        source: &str,
+        target: &str,
+        entries: &mut BTreeMap<PathBuf, PathBuf>,
+    ) -> anyhow::Result<()> {
+        let abs_source = manifest_dir.join(source);
+        let abs_source = abs_source
+            .canonicalize()
+            .with_context(|| format!("Failed to resolve source path: {}", abs_source.display()))?;
+
+        let abs_target = expand_tilde(target)?;
+
+        if abs_source.is_dir() {
+            for entry in WalkDir::new(&abs_source)
+                .into_iter()
+                .filter_map(Result::ok)
+                .filter(|e| e.file_type().is_file())
+            {
+                let rel = entry.path().strip_prefix(&abs_source).unwrap();
+                let file_target = abs_target.join(rel);
+                debug!(
+                    "Resolved directory entry: {} -> {}",
+                    entry.path().display(),
+                    file_target.display()
+                );
+                entries.insert(entry.path().to_path_buf(), file_target);
+            }
+        } else if abs_source.is_file() {
+            // If the target is an existing directory, place the file inside it
+            let final_target = Self::resolve_final_target(&abs_source, abs_target)?;
+
+            debug!(
+                "Resolved file entry: {} -> {}",
+                abs_source.display(),
+                final_target.display()
+            );
+            entries.insert(abs_source, final_target);
+        } else {
+            return Err(anyhow!(
+                "Source path is neither a file nor directory: {}",
+                abs_source.display()
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn resolve_final_target(abs_source: &Path, abs_target: PathBuf) -> anyhow::Result<PathBuf> {
+        let final_target = if abs_target.is_dir() {
+            let file_name = abs_source
+                .file_name()
+                .ok_or_else(|| anyhow!("Source has no file name: {}", abs_source.display()))?;
+            abs_target.join(file_name)
+        } else {
+            abs_target
+        };
+
+        Ok(final_target)
     }
 
     /// Validate that no two source files map to the same target path.

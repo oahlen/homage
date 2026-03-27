@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{Context, anyhow};
 use log::{debug, info};
 use std::collections::{BTreeMap, HashSet};
 use std::io::{BufRead, stdin};
@@ -55,39 +55,22 @@ impl Action {
             .filter(|s| !s.is_installed())
             .collect();
 
-        // Pre-flight check: verify every target is available before making any changes.
-        // Targets occupied by stale symlinks are excluded since those will be removed first.
-        let stale_targets: HashSet<&PathBuf> = stale.iter().map(|s| &s.target).collect();
-        let conflicts: Vec<_> = to_install
-            .iter()
-            .filter(|entry| entry.exists() && !stale_targets.contains(&entry.target))
-            .collect();
-
-        if !conflicts.is_empty() {
-            let listing: Vec<String> = conflicts
-                .iter()
-                .map(|e| format!("  {}", e.target.display()))
-                .collect();
-            return Err(anyhow::anyhow!(
-                "Cannot install, the following target files already exist:\n{}",
-                listing.join("\n")
-            ));
-        }
+        self.pre_flight_check(&to_install, &stale)?;
 
         if stale.is_empty() && to_install.is_empty() {
-            println!("Everything is up to date");
+            info!("Everything is up to date");
             return Ok(());
         }
 
         if !stale.is_empty() {
-            println!(
+            info!(
                 "Found {} stale dotfile(s) to remove",
                 fmt_number(stale.len()),
             );
         }
 
         if !to_install.is_empty() {
-            println!(
+            info!(
                 "Found {} dotfile(s) to install",
                 fmt_number(to_install.len()),
             );
@@ -100,23 +83,55 @@ impl Action {
             }
         }
 
-        // Remove stale symlinks
-        for entry in &stale {
+        self.remove_stale_entries(&stale);
+        self.install_entries(&to_install);
+        self.update_cache(&manifest)?;
+
+        Ok(())
+    }
+
+    // Verifies every target is available before making any changes.
+    // Targets occupied by stale symlinks are excluded since those will be removed first.
+    fn pre_flight_check(&self, to_install: &[Symlink], stale: &[Symlink]) -> anyhow::Result<()> {
+        let stale_targets: HashSet<&PathBuf> = stale.iter().map(|s| &s.target).collect();
+        let conflicts: Vec<_> = to_install
+            .iter()
+            .filter(|entry| entry.exists() && !stale_targets.contains(&entry.target))
+            .collect();
+
+        if !conflicts.is_empty() {
+            let listing: Vec<String> = conflicts
+                .iter()
+                .map(|e| format!("  {}", e.target.display()))
+                .collect();
+            return Err(anyhow!(
+                "Cannot install, the following target files already exist:\n{}",
+                listing.join("\n")
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn remove_stale_entries(&self, stale: &Vec<Symlink>) {
+        for entry in stale {
             debug!("Removing stale symlink: {}", fmt_file(&entry.target));
             if !self.dry_run {
                 entry.uninstall();
             }
         }
+    }
 
-        // Install new symlinks
-        for entry in &to_install {
+    fn install_entries(&self, to_install: &Vec<Symlink>) {
+        for entry in to_install {
             debug!("Installing: {}", entry);
             if !self.dry_run {
                 entry.install();
             }
         }
+    }
 
-        // Update cache with current manifest entries
+    fn update_cache(&self, manifest: &Manifest) -> anyhow::Result<()> {
         if !self.dry_run {
             let mut new_cache = Cache::default();
             new_cache.update(&manifest.entries);
@@ -158,14 +173,14 @@ impl Action {
             .collect();
 
         if to_remove.is_empty() {
-            println!("No dotfiles to uninstall");
+            info!("No dotfiles to uninstall");
             if !self.dry_run {
                 Cache::delete(&self.cache_path)?;
             }
             return Ok(());
         }
 
-        println!(
+        info!(
             "Found {} dotfile(s) to uninstall",
             fmt_number(to_remove.len()),
         );
