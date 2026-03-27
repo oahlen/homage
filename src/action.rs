@@ -1,11 +1,11 @@
 use anyhow::{Context, anyhow};
-use log::{debug, info};
+use log::{debug, info, trace};
 use std::collections::{BTreeMap, HashSet};
 use std::io::{BufRead, stdin};
 use std::path::PathBuf;
 
 use crate::cache::Cache;
-use crate::format::{fmt_file, fmt_number};
+use crate::format::{fmt_file, fmt_link, fmt_number};
 use crate::manifest::Manifest;
 use crate::symlink::Symlink;
 
@@ -34,7 +34,7 @@ impl Action {
     pub fn install(&self) -> anyhow::Result<()> {
         info!(
             "Installing dotfiles from manifest: {}",
-            self.manifest_path.display()
+            fmt_file(&self.manifest_path)
         );
 
         let manifest = Manifest::load(&self.manifest_path).context("Failed to load manifest")?;
@@ -115,7 +115,7 @@ impl Action {
 
     fn remove_stale_entries(&self, stale: &Vec<Symlink>) {
         for entry in stale {
-            debug!("Removing stale symlink: {}", fmt_file(&entry.target));
+            debug!("Removing stale symlink: {}", fmt_link(&entry.target));
             if !self.dry_run {
                 entry.uninstall();
             }
@@ -138,7 +138,7 @@ impl Action {
             new_cache
                 .save(&self.cache_path)
                 .context("Failed to save cache")?;
-            debug!("Cache updated at {}", self.cache_path.display());
+            debug!("Cache updated at {}", fmt_file(&self.cache_path));
         }
 
         Ok(())
@@ -147,7 +147,7 @@ impl Action {
     pub fn uninstall(&self) -> anyhow::Result<()> {
         info!(
             "Uninstalling dotfiles from manifest: {}",
-            self.manifest_path.display()
+            fmt_file(&self.manifest_path)
         );
 
         let manifest = Manifest::load(&self.manifest_path).context("Failed to load manifest")?;
@@ -202,7 +202,7 @@ impl Action {
         // Delete cache
         if !self.dry_run {
             Cache::delete(&self.cache_path)?;
-            debug!("Cache deleted");
+            trace!("Cache deleted");
         }
 
         Ok(())

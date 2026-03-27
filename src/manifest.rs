@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
+use crate::format::{fmt_file, fmt_link};
 use crate::symlink::Symlink;
 use crate::utils::expand_tilde;
 
@@ -65,7 +66,7 @@ impl Manifest {
         // Process includes first
         for include in &manifest.includes {
             let include_path = manifest_dir.join(include);
-            debug!("Processing include: {}", include_path.display());
+            debug!("Processing include: {}", fmt_file(&include_path));
             Self::load_recursive(&include_path, visited, entries)?;
         }
 
@@ -100,8 +101,8 @@ impl Manifest {
                 let file_target = abs_target.join(rel);
                 debug!(
                     "Resolved directory entry: {} -> {}",
-                    entry.path().display(),
-                    file_target.display()
+                    fmt_file(entry.path()),
+                    fmt_link(&file_target)
                 );
                 entries.insert(entry.path().to_path_buf(), file_target);
             }
@@ -111,8 +112,8 @@ impl Manifest {
 
             debug!(
                 "Resolved file entry: {} -> {}",
-                abs_source.display(),
-                final_target.display()
+                fmt_file(&abs_source),
+                fmt_link(&final_target)
             );
             entries.insert(abs_source, final_target);
         } else {
