@@ -1,13 +1,16 @@
 # Homage
 
-Simple and effective dotfiles manager for your home.
+Simple and effective *dotfiles* manager for your home.
 
-Manages dotfiles through a simple manifest file format that declares which files should be symlinked and where.
-Homage tracks installed symlinks in a cache so it can automatically clean up stale entries when a manifest changes.
+Homage manages your dotfiles through a simple manifest file format that declares which files should be symlinked and
+where. Homage tracks previously installed symlinks and automatically cleans up stale entries when a manifest changes.
 
 ## Manifest format
 
-A manifest file specifies dotfiles to install and can include other manifests:
+A manifest file specifies dotfiles to install and can include other manifests. This is useful for declaring a set of
+common dotfiles to be shared across multiple machines.
+
+### Example
 
 ```toml
 includes = [
@@ -23,12 +26,14 @@ includes = [
 - **Source paths** (left side) are resolved relative to the manifest file.
 - **Target paths** (right side) support `~` for the home directory.
 - **Individual files** are symlinked directly.
-- **Directories** are traversed recursively and all contained files are individually symlinked,
-  with intermediate directories created as needed.
+- **Directories** are traversed recursively and all contained files are individually symlinked, with intermediate
+  directories created as needed.
 - **Includes** reference other manifest files (paths relative to the including manifest) and are resolved recursively.
   Circular includes are detected and rejected.
 
 ## Usage
+
+Below are the main commands of the program, see the `--help` flag for details.
 
 ### Install
 
@@ -36,8 +41,9 @@ includes = [
 homage install manifest.toml
 ```
 
-Parses the manifest, compares against the cache, removes symlinks that are no longer referenced, and installs new ones.
+Parses a dotfiles manifest and install all relevant files/symlinks.
 Running install again after modifying the manifest will automatically clean up entries that were removed.
+This operation is idempotent, running the command on the same manifest multiple times yields the exact same result.
 
 ### Uninstall
 
@@ -45,17 +51,7 @@ Running install again after modifying the manifest will automatically clean up e
 homage uninstall manifest.toml
 ```
 
-Removes all managed symlinks referenced by the manifest and any remaining entries in the cache,
-then deletes the cache file.
-
-### Options
-
-| Flag | Description |
-|---|---|
-| `--dry-run` | Preview changes without modifying the file system |
-| `--no-confirm` | Skip the confirmation prompt |
-| `-v` / `-vv` / `-vvv` | Increase output verbosity |
-| `--quiet` | Only print error messages |
+Removes all managed symlinks referenced by the dotfiles manifest and any remaining stale entries.
 
 ## Cache
 
