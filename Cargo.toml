@@ -1,6 +1,6 @@
 [package]
 name = "homage"
-version = "1.0.0"
+version = "2.0.0"
 edition = "2024"
 license = "MIT"
 description = "Simple and effective dotfiles manager for your home."
@@ -9,9 +9,11 @@ categories = ["command-line-utilities"]
 keywords = ["dotfiles"]
 
 [dependencies]
-anyhow = "1.0.100"
-clap = { version = "4.5.53", features = ["derive"] }
-colored = "3.0.0"
-env_logger = "0.11.8"
+anyhow = "1.0.102"
+clap = { version = "4.6.0", features = ["derive"] }
+colored = "3.1.1"
+env_logger = "0.11.10"
 log = "0.4.29"
+serde = { version = "1.0.228", features = ["derive"] }
+toml = "1.0.0"
 walkdir = "2.5.0"
