@@ -13,3 +13,7 @@ pub fn fmt_file(path: &Path) -> ColoredString {
 pub fn fmt_link(path: &Path) -> ColoredString {
     path.display().to_string().cyan()
 }
+
+pub fn fmt_error(path: &Path) -> ColoredString {
+    path.display().to_string().red()
+}

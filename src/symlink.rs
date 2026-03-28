@@ -1,8 +1,8 @@
 use std::{fmt::Display, fs, os::unix::fs as unix_fs, path::PathBuf};
 
-use log::error;
+use log::{error, info};
 
-use crate::format::{fmt_file, fmt_link};
+use crate::format::{fmt_error, fmt_file, fmt_link};
 
 pub struct Symlink {
     pub source: PathBuf,
@@ -31,6 +31,7 @@ impl Symlink {
         {
             return true;
         }
+
         false
     }
 
@@ -45,6 +46,17 @@ impl Symlink {
                         err
                     );
                     return;
+                }
+            }
+        }
+
+        if self.target.is_symlink() && !self.exists() {
+            info!("Overwriting broken symlink at {}", fmt_error(&self.target));
+
+            match fs::remove_file(&self.target) {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Failed to cleanup broken symlink {}: {}", self, err);
                 }
             }
         }
@@ -140,6 +152,28 @@ mod tests {
         let link = Symlink::new(source, target.clone());
 
         assert!(link.exists());
+    }
+
+    #[test]
+    fn install_replaces_broken_symlink() {
+        let base = unique_dir("broken_symlink");
+
+        let old_source = base.join("old_source.txt");
+        let new_source = write_file(&base, "new_source.txt", "new content");
+        let target = base.join("link.txt");
+
+        // Create a broken symlink by pointing to a non-existent file
+        unix_fs::symlink(&old_source, &target).unwrap();
+        assert!(target.is_symlink());
+        assert!(!target.exists()); // broken: destination doesn't exist
+
+        // Install should replace the broken symlink
+        let link = Symlink::new(new_source.clone(), target.clone());
+        link.install();
+
+        assert!(target.is_symlink());
+        assert!(link.is_installed());
+        assert_eq!(fs::read_to_string(&target).unwrap(), "new content");
     }
 
     #[test]
