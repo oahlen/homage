@@ -95,23 +95,12 @@ mod tests {
     use super::*;
 
     use std::fs::{self};
-    use std::time::{SystemTime, UNIX_EPOCH};
 
-    use crate::tests::tests::write_file;
-
-    fn unique_dir(prefix: &str) -> PathBuf {
-        let ts = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let dir = std::env::temp_dir().join(format!("homage_symlink_{}_{}", prefix, ts));
-        fs::create_dir_all(&dir).unwrap();
-        dir
-    }
+    use crate::tests::tests::{test_dir, write_file};
 
     #[test]
     fn is_installed_false_for_regular_file() {
-        let base = unique_dir("regular");
+        let base = test_dir("regular");
 
         let source = write_file(&base, "source.txt", "src");
         let target = write_file(&base, "target.txt", "target");
@@ -123,7 +112,7 @@ mod tests {
 
     #[test]
     fn install_and_uninstall_symlink() {
-        let base = unique_dir("install");
+        let base = test_dir("install");
         let source = write_file(&base, "source.txt", "src");
 
         let target_dir = base.join("target");
@@ -144,7 +133,7 @@ mod tests {
 
     #[test]
     fn exists_true_for_existing_file() {
-        let base = unique_dir("exists");
+        let base = test_dir("exists");
 
         let source = write_file(&base, "source.txt", "src");
         let target = write_file(&base, "target.txt", "target");
@@ -156,7 +145,7 @@ mod tests {
 
     #[test]
     fn install_replaces_broken_symlink() {
-        let base = unique_dir("broken_symlink");
+        let base = test_dir("broken_symlink");
 
         let old_source = base.join("old_source.txt");
         let new_source = write_file(&base, "new_source.txt", "new content");
@@ -178,7 +167,7 @@ mod tests {
 
     #[test]
     fn is_installed_true_after_install() {
-        let base = unique_dir("installed");
+        let base = test_dir("installed");
 
         let source = write_file(&base, "source.txt", "src");
         let target = base.join("link.txt");
